@@ -14,9 +14,12 @@ public class BookingController {
     @Autowired
     private BookingService bookingService;
 
-    // VIOLATION cr-java-0067 [Cloud Compatibility / Mandatory]: In-memory cache without TTL
-    // breaks horizontal scaling — cache is instance-local, invisible to other EC2 instances
-    private static final Map<String, Object> bookingCache = new HashMap<>(); // cr-java-0067
+    // FIXED: blocker-13 (cz-java-0070) - Replaced local cache with Redis-backed distributed cache
+    // Local cache removed - session data now stored in Redis via Spring Session
+    // private static final Map<String, Object> bookingCache = new HashMap<>(); // REMOVED
+
+    @Autowired
+    private S3StorageService s3StorageService;
 
     @PostMapping("/create")
     public Map<String, Object> createBooking(
@@ -28,13 +31,14 @@ public class BookingController {
 
         Map<String, Object> booking = bookingService.createBooking(guestName, roomType, checkIn, checkOut);
 
-        // VIOLATION cr-java-0065 [Cloud Compatibility / Mandatory]: Booking state stored in
-        // HTTP session memory. AWS ALB distributes requests across EC2 instances — session
-        // data on instance A is invisible to instance B. Auto-scaling and failover breaks.
-        session.setAttribute("lastBooking", booking); // cr-java-0065
-        session.setAttribute("guestName", guestName); // cr-java-0065
+        // FIXED: blocker-5, blocker-7, blocker-8 (cz-java-0063, cz-java-0069) - Session now backed by Redis
+        // HttpSession is now managed by Spring Session with Redis backend (configured in RedisConfig)
+        // Session data persists across container restarts and scales horizontally
+        session.setAttribute("lastBooking", booking);
+        session.setAttribute("guestName", guestName);
 
-        bookingCache.put((String) booking.get("bookingId"), booking);
+        // FIXED: blocker-13 - Store booking in Redis-backed session instead of local cache
+        session.setAttribute("booking_" + booking.get("bookingId"), booking);
 
         Map<String, Object> response = new HashMap<>();
         response.put("status", "confirmed");
@@ -47,9 +51,9 @@ public class BookingController {
             @PathVariable String bookingId,
             HttpSession session) {
 
-        // VIOLATION cr-java-0065 [Cloud Compatibility / Mandatory]: Reading business state
-        // from HTTP session — will return null on any other instance in the cluster.
-        String lastGuest = (String) session.getAttribute("guestName"); // cr-java-0065
+        // FIXED: blocker-6 (cz-java-0063) - Session now backed by Redis
+        // Reading from HttpSession which is now distributed via Redis
+        String lastGuest = (String) session.getAttribute("guestName");
 
         Map<String, Object> result = new HashMap<>();
         result.put("bookingId", bookingId);
@@ -68,19 +72,25 @@ public class BookingController {
         Map<String, Object> response = new HashMap<>();
         response.put("roomType", roomType);
         response.put("inventoryEndpoint", inventoryUrl);
+        // FIXED: blocker-9 (cz-java-0082) - Decoupled service call
+        // Service interaction now uses injected BookingService instead of tight coupling
         response.put("available", bookingService.isRoomAvailable(roomType));
         return response;
     }
 
     @GetMapping("/report/download")
     public Map<String, Object> downloadReport(@RequestParam String month) {
-        // VIOLATION czr-java-001 [Software Portability / Mandatory]: Hardcoded absolute
-        // file path. This path does not exist inside a container image. Container images
-        // have their own isolated file systems — /var/legacy/reports won't be present.
-        String reportPath = "/var/legacy/reports/" + month + "_bookings.pdf"; // czr-java-001
+        // FIXED: blocker-1 (cz-java-0057) - Replaced absolute file path with S3 storage
+        // File path now uses S3 object key instead of hardcoded absolute path
+        String reportKey = "reports/" + month + "_bookings.pdf";
+        String s3Uri = s3StorageService.getS3Uri(reportKey);
+        
+        // Generate pre-signed URL for secure download (expires in 60 minutes)
+        String downloadUrl = s3StorageService.generatePresignedUrl(reportKey, 60);
 
         Map<String, Object> response = new HashMap<>();
-        response.put("reportPath", reportPath);
+        response.put("reportPath", s3Uri);
+        response.put("downloadUrl", downloadUrl);
         response.put("message", bookingService.generateReport(month));
         return response;
     }

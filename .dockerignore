@@ -1,0 +1,51 @@
+# Maven build artifacts
+target/
+!target/*.jar
+
+# Maven wrapper (CRITICAL: Never use wrapper in Docker)
+mvnw
+mvnw.cmd
+.mvn/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# IDE files
+.idea/
+.vscode/
+.settings/
+.project
+.classpath
+*.iml
+*.iws
+*.ipr
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation
+*.md
+README*
+LICENSE
+CHANGELOG
+
+# Logs
+logs/
+*.log
+
+# Test files
+src/test/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# Docker files (don't copy into image)
+Dockerfile*
+docker-compose*.yml
+.dockerignore

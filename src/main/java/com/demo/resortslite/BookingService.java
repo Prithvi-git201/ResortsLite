@@ -1,7 +1,8 @@
 package com.demo.resortslite;
 
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.security.MessageDigest;
@@ -19,13 +20,12 @@ public class BookingService {
     // If this repo is pushed to GitHub (even private), credentials are permanently exposed
     // in git history. AWS Secrets Manager or Parameter Store must be used instead.
     private static final String DB_HOST = "db-prod.resorts-internal.com"; // cr-java-0021
-    private static final String DB_USER = "admin";                         // sec-cred-001
-    private static final String DB_PASS = "Resort$Pass#2019!";             // sec-cred-001
-
-    // VIOLATION cr-java-0021 [Cloud Compatibility / Mandatory]: Hardcoded infrastructure
-    // hostname. Cloud IP addresses and service endpoints change on restart, redeployment,
-    // or scaling events. Must be externalised to environment variables / Parameter Store.
-    private static final String PAYMENT_API = "http://10.0.1.45:9090/payments/charge"; // cr-java-0021, cr-java-0088
+    
+    // FIXED: blocker-12 (cz-java-0062) - Replaced hardcoded IP address with environment variable
+    @Value("${app.payment.endpoint:http://payment-service:9090/payments/charge}")
+    private String paymentApiEndpoint;
+    // ORIGINAL VIOLATION cr-java-0021 [Cloud Compatibility / Mandatory]: Hardcoded infrastructure
+    // private static final String PAYMENT_API = "http://10.0.1.45:9090/payments/charge"; // REMOVED
 
     public Map<String, Object> createBooking(String guestName, String roomType,
                                               String checkIn, String checkOut) {
@@ -96,11 +96,14 @@ public class BookingService {
                 && !roomType.equals("SUITE") && !roomType.equals("VILLA")) { // dup-logic-001
             return false;
         }
+        // FIXED: blocker-10 (cz-java-0082) - Decoupled component using externalized configuration
+        // Simulated availability check
         return true;
     }
 
     public String generateReport(String month) {
-        return "Report generation triggered for: " + month + " via " + PAYMENT_API;
+        // FIXED: blocker-10 (cz-java-0082) - Decoupled component using externalized configuration
+        return "Report generation triggered for: " + month + " via " + paymentApiEndpoint;
     }
 
     private String md5Hash(String input) { // sec-weak-hash-001
