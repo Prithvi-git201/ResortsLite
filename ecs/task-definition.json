@@ -1,0 +1,84 @@
+{
+  "family": "resortslite-task",
+  "requiresCompatibilities": ["FARGATE"],
+  "networkMode": "awsvpc",
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::{{ACCOUNT_ID}}:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::{{ACCOUNT_ID}}:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "resortslite",
+      "image": "{{IMAGE_URI}}",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "JAVA_OPTS",
+          "value": "-Xmx512m -Xms256m -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+        },
+        {
+          "name": "SPRING_PROFILES_ACTIVE",
+          "value": "docker"
+        },
+        {
+          "name": "TZ",
+          "value": "UTC"
+        },
+        {
+          "name": "SERVER_PORT",
+          "value": "8080"
+        },
+        {
+          "name": "REDIS_HOST",
+          "value": "{{REDIS_HOST}}"
+        },
+        {
+          "name": "REDIS_PORT",
+          "value": "{{REDIS_PORT}}"
+        },
+        {
+          "name": "REDIS_PASSWORD",
+          "value": "{{REDIS_PASSWORD}}"
+        },
+        {
+          "name": "S3_BUCKET_NAME",
+          "value": "{{S3_BUCKET_NAME}}"
+        },
+        {
+          "name": "AWS_REGION",
+          "value": "{{AWS_REGION}}"
+        },
+        {
+          "name": "INVENTORY_SERVICE_URL",
+          "value": "{{INVENTORY_SERVICE_URL}}"
+        },
+        {
+          "name": "SPRING_DATASOURCE_URL",
+          "value": "jdbc:h2:mem:resortdb;DB_CLOSE_DELAY=-1"
+        },
+        {
+          "name": "SPRING_DATASOURCE_USERNAME",
+          "value": "sa"
+        },
+        {
+          "name": "SPRING_DATASOURCE_PASSWORD",
+          "value": ""
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/resortslite",
+          "awslogs-region": "{{AWS_REGION}}",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}
