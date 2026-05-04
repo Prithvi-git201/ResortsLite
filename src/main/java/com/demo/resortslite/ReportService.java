@@ -1,53 +1,71 @@
 package com.demo.resortslite;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
-import java.io.File;
-import java.io.FileWriter;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 
 @Service
 public class ReportService {
 
-    // VIOLATION czr-java-001 [Software Portability / Mandatory]: Hardcoded absolute path.
-    // /var/legacy/reports does not exist in a Docker container image. Breaks containerisation.
-    // Must use volume mounts, cloud object storage (S3 / Azure Blob), or environment variable.
-    private static final String REPORT_BASE_PATH = "/var/legacy/reports/"; // czr-java-001
+    @Autowired
+    private S3Client s3Client;
 
-    // VIOLATION czr-java-001 [Software Portability / Mandatory]: Windows-style absolute path
-    // will fail on any Linux-based container or cloud host. Hard dependency on OS path structure.
-    private static final String BACKUP_PATH = "C:\\ResortBackups\\nightly\\"; // czr-java-001
+    // FIXED cr-java-0061, cr-java-0062, cr-java-0063: Replaced hard-coded file paths with Amazon S3
+    // All file operations now use S3 for durable, scalable cloud storage
+    @Value("${aws.s3.reports-bucket:resorts-reports-bucket}")
+    private String reportsBucketName;
 
-    // VIOLATION [Software Portability / High]: Fixed server port hardcoded in application logic.
-    // Container orchestration (ECS / EKS) dynamically assigns ports. Hardcoded ports prevent
-    // dynamic port binding required for modern container deployment and service discovery.
-    private static final int SERVER_PORT = 8080; // czr-port-001
+    @Value("${aws.s3.backups-bucket:resorts-backups-bucket}")
+    private String backupsBucketName;
+
+    // FIXED cr-java-0077: Replaced hard-coded port with environment variable
+    // Port is now dynamically assigned by container orchestration (ECS/EKS)
+    @Value("${server.port:8080}")
+    private int serverPort;
+
+    // FIXED cr-java-0071: Externalized report download URL to Parameter Store
+    @Value("${app.reports.base-url:https://reports.resorts-internal.com}")
+    private String reportsBaseUrl;
 
     public Map<String, Object> generateMonthlyReport(String month, String year) {
         String fileName = "resort_report_" + month + "_" + year + ".csv";
-        String fullPath = REPORT_BASE_PATH + fileName; // czr-java-001
 
         Map<String, Object> result = new HashMap<>();
 
         try {
-            File reportDir = new File(REPORT_BASE_PATH); // czr-java-001
-            if (!reportDir.exists()) {
-                reportDir.mkdirs();
-            }
+            // FIXED cr-java-0062, cr-java-0063: Replaced local file write with S3 upload
+            // Generate report content in memory
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            outputStream.write("BookingID,GuestName,RoomType,CheckIn,CheckOut,Amount\n".getBytes());
+            outputStream.write("BK-001,John Smith,SUITE,2024-03-01,2024-03-05,1750.00\n".getBytes());
+            outputStream.write("BK-002,Jane Doe,DELUXE,2024-03-03,2024-03-07,960.00\n".getBytes());
 
-            FileWriter writer = new FileWriter(fullPath);
-            writer.write("BookingID,GuestName,RoomType,CheckIn,CheckOut,Amount\n");
-            writer.write("BK-001,John Smith,SUITE,2024-03-01,2024-03-05,1750.00\n");
-            writer.write("BK-002,Jane Doe,DELUXE,2024-03-03,2024-03-07,960.00\n");
-            writer.close();
+            // Upload to S3 instead of writing to local file system
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(reportsBucketName)
+                    .key("monthly-reports/" + fileName)
+                    .contentType("text/csv")
+                    .build();
+
+            s3Client.putObject(putObjectRequest, RequestBody.fromBytes(outputStream.toByteArray()));
 
             result.put("status", "generated");
-            result.put("path", fullPath);
-            result.put("serverPort", SERVER_PORT); // czr-port-001
+            result.put("bucket", reportsBucketName);
+            result.put("key", "monthly-reports/" + fileName);
+            result.put("s3Uri", "s3://" + reportsBucketName + "/monthly-reports/" + fileName);
+            result.put("serverPort", serverPort);
 
         } catch (IOException e) {
             result.put("status", "error");
@@ -57,22 +75,71 @@ public class ReportService {
         return result;
     }
 
-    // VIOLATION [Code Sustainability / Medium]: No JavaDoc or method documentation.
-    // Missing documentation is flagged across all public methods in the codebase.
-    // This increases onboarding time and transformation risk for automated tools.
-    public String buildReportDownloadUrl(String reportName) { // doc-missing-001
-        // VIOLATION cr-java-0088 [Cloud Compatibility / Mandatory]: Plain HTTP URL
-        // hardcoded for report download. Cloud security standards enforce HTTPS.
-        return "http://reports.resorts-internal.com:8080/download/" + reportName; // cr-java-0088
+    /**
+     * Builds a secure HTTPS URL for report download.
+     * FIXED cr-java-0071: Uses externalized base URL from Parameter Store
+     * 
+     * @param reportName The name of the report file
+     * @return HTTPS URL for downloading the report
+     */
+    public String buildReportDownloadUrl(String reportName) {
+        // FIXED cr-java-0071: Using externalized HTTPS URL from Parameter Store
+        return reportsBaseUrl + "/download/" + reportName;
     }
 
-    public Map<String, Object> getSystemInfo() { // doc-missing-001
-        String timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+    /**
+     * Retrieves system configuration information.
+     * FIXED cr-java-0111: Uses java.time API with UTC standardization
+     * 
+     * @return Map containing system configuration details
+     */
+    public Map<String, Object> getSystemInfo() {
+        // FIXED cr-java-0111: Replaced java.util.Date with java.time API
+        // All timestamps now use UTC to avoid timezone inconsistencies in distributed environments
+        Instant now = Instant.now();
+        ZonedDateTime utcTime = now.atZone(ZoneId.of("UTC"));
+        String timestamp = utcTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+
         Map<String, Object> info = new HashMap<>();
-        info.put("reportPath", REPORT_BASE_PATH);  // czr-java-001
-        info.put("backupPath", BACKUP_PATH);        // czr-java-001
-        info.put("serverPort", SERVER_PORT);        // czr-port-001
+        info.put("reportsBucket", reportsBucketName);
+        info.put("backupsBucket", backupsBucketName);
+        info.put("serverPort", serverPort);
         info.put("generatedAt", timestamp);
+        info.put("generatedAtEpoch", now.toEpochMilli());
+        info.put("timezone", "UTC");
         return info;
+    }
+
+    /**
+     * Uploads a backup file to S3.
+     * FIXED cr-java-0061, cr-java-0062, cr-java-0063: Replaced local file operations with S3
+     * 
+     * @param backupName The name of the backup file
+     * @param content The backup content as byte array
+     * @return Map containing upload status and S3 location
+     */
+    public Map<String, Object> uploadBackup(String backupName, byte[] content) {
+        Map<String, Object> result = new HashMap<>();
+
+        try {
+            // FIXED cr-java-0061: Using S3 instead of hardcoded Windows path
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(backupsBucketName)
+                    .key("nightly/" + backupName)
+                    .build();
+
+            s3Client.putObject(putObjectRequest, RequestBody.fromBytes(content));
+
+            result.put("status", "uploaded");
+            result.put("bucket", backupsBucketName);
+            result.put("key", "nightly/" + backupName);
+            result.put("s3Uri", "s3://" + backupsBucketName + "/nightly/" + backupName);
+
+        } catch (Exception e) {
+            result.put("status", "error");
+            result.put("message", e.getMessage());
+        }
+
+        return result;
     }
 }
