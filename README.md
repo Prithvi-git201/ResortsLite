@@ -1,9 +1,9 @@
-# ResortsLite — Legacy Java 8 Demo Application
+# ResortsLite — Modernized Java 17 Application
 
-A compact Spring Boot 2.7.x resort booking application built with **intentional legacy
-patterns** across all four COMPASS assessment domains.
+A compact Spring Boot 3.2.x resort booking application that has been **modernized and secured**
+from legacy patterns to cloud-ready standards.
 
-**Purpose:** Hands-on Concierto Modernize demo — scan, assess, and transform.
+**Purpose:** Demonstrates successful Concierto Modernize transformation — scan, assess, and transform.
 
 ---
 
@@ -11,15 +11,33 @@ patterns** across all four COMPASS assessment domains.
 
 | Item | Version |
 |---|---|
-| Java | 1.8 |
-| Spring Boot | 2.7.18 |
-| Spring MVC | 5.3.x |
+| Java | 17 |
+| Spring Boot | 3.2.0 |
+| Spring MVC | 6.x |
 | Build | Maven |
 | Database | H2 in-memory |
 
 ---
 
-## Violation Traceability Matrix
+## Modernization Changes Applied
+
+### Security Improvements
+- ✅ Updated Log4j from 2.14.1 to 2.20.0 (fixes CVE-2021-44228 Log4Shell)
+- ✅ Updated commons-collections from 3.2.1 to 4.4 (fixes CVE-2015-6420)
+- ✅ Replaced MD5 hashing with SHA-256 for secure confirmation codes
+- ✅ Migrated from javax.servlet to jakarta.servlet (Jakarta EE 9+)
+
+### Platform Upgrades
+- ✅ Upgraded from Java 8 to Java 17
+- ✅ Upgraded from Spring Boot 2.7.18 to 3.2.0
+- ✅ Updated Maven compiler plugin to 3.11.0 with Java 17 support
+
+---
+
+## Remaining Technical Debt
+
+While the application now compiles and runs on modern infrastructure, the following
+architectural issues remain and should be addressed in future iterations:
 
 | Rule ID | Domain | Severity | File | Line(s) | Description |
 |---|---|---|---|---|---|
@@ -35,23 +53,22 @@ patterns** across all four COMPASS assessment domains.
 | sql-inject-001 | Security Health | Critical | BookingService.java | 36–38 | SQL injection via string concatenation (INSERT) |
 | sql-inject-001 | Security Health | Critical | BookingService.java | 53 | SQL injection via string concatenation (SELECT) |
 | sec-cred-001 | Security Health | Critical | BookingService.java | 21, 22 | Hardcoded database credentials in source code |
-| sec-weak-hash-001 | Security Health | High | BookingService.java | 43, 91, 92 | MD5 used for confirmation code hashing |
-| CVE-2021-44228 | Security Health | Critical | pom.xml | 35 | Log4j 2.14.1 — Log4Shell RCE vulnerability |
-| CVE-2015-6420 | Security Health | High | pom.xml | 41 | commons-collections 3.2.1 — RCE via deserialization |
 | dup-logic-001 | Code Sustainability | Medium | BookingService.java | 71–72 | Duplicated room type validation |
 | complexity-001 | Code Sustainability | High | BookingService.java | 65–82 | Cyclomatic complexity > 9 in calculateRoomPrice |
 | doc-missing-001 | Code Sustainability | Medium | ReportService.java | 55, 63 | Missing JavaDoc on public methods |
 
 ---
 
-## Expected COMPASS Scores (Pre-Transformation)
+## Expected COMPASS Scores (Post-Initial-Transformation)
 
-| Domain | Expected Score | Primary Driver |
+| Domain | Current Score | Primary Improvements Needed |
 |---|---|---|
-| Cloud Compatibility | ~55 / 100 | 6 cloud blockers (session, config, HTTP) |
-| Software Portability | ~70 / 100 | Hardcoded paths + fixed port |
-| Code Sustainability | ~65 / 100 | High complexity + duplication + missing docs |
-| Security Health | ~45 / 100 | 2 critical CVEs + SQL injection + hardcoded creds |
+| Cloud Compatibility | ~60 / 100 | Externalize config, remove session state, use HTTPS |
+| Software Portability | ~75 / 100 | Remove hardcoded paths, use environment variables |
+| Code Sustainability | ~70 / 100 | Reduce complexity, add documentation |
+| Security Health | ~70 / 100 | Fix SQL injection, externalize credentials |
+
+**Note:** Security score improved significantly due to CVE fixes and SHA-256 migration.
 
 ---
 
@@ -75,16 +92,36 @@ GET  /api/bookings/report/download?month=june
 
 ---
 
+## Build Requirements
+
+- Java 17 or higher
+- Maven 3.6+
+
+---
+
 ## Line Count Summary
 
 | File | Lines |
 |---|---|
-| pom.xml | 54 |
+| pom.xml | 68 |
 | ResortsLiteApplication.java | 11 |
 | BookingController.java | 82 |
-| BookingService.java | 100 |
+| BookingService.java | 115 |
 | ReportService.java | 69 |
 | application.properties | 18 |
-| **Total** | **334** |
+| **Total** | **363** |
 
-*Java source lines only: 262*
+*Java source lines: ~277*
+
+---
+
+## Next Steps for Full Cloud Readiness
+
+1. **Externalize Configuration**: Move all hardcoded endpoints and credentials to environment variables or AWS Parameter Store
+2. **Remove Session State**: Implement stateless authentication using JWT or OAuth2
+3. **Fix SQL Injection**: Use parameterized queries throughout
+4. **Implement Distributed Caching**: Replace in-memory cache with Redis or ElastiCache
+5. **Use HTTPS**: Update all internal service calls to use HTTPS
+6. **Container-Ready Paths**: Use environment variables for file paths and mount volumes
+7. **Add Comprehensive Documentation**: JavaDoc for all public methods
+8. **Reduce Complexity**: Refactor calculateRoomPrice method using strategy pattern
