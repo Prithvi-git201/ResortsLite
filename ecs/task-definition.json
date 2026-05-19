@@ -1,0 +1,96 @@
+{
+  "family": "resortslite-task",
+  "requiresCompatibilities": ["FARGATE"],
+  "networkMode": "awsvpc",
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::{{ACCOUNT_ID}}:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::{{ACCOUNT_ID}}:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "resortslite",
+      "image": "{{IMAGE_URI}}",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "SERVER_PORT",
+          "value": "8080"
+        },
+        {
+          "name": "SPRING_PROFILES_ACTIVE",
+          "value": "docker"
+        },
+        {
+          "name": "JAVA_OPTS",
+          "value": "-Xmx512m -Xms256m -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+        },
+        {
+          "name": "TZ",
+          "value": "UTC"
+        },
+        {
+          "name": "DB_URL",
+          "value": "jdbc:h2:mem:resortdb;DB_CLOSE_DELAY=-1"
+        },
+        {
+          "name": "DB_USERNAME",
+          "value": "sa"
+        },
+        {
+          "name": "DB_PASSWORD",
+          "value": ""
+        },
+        {
+          "name": "REDIS_HOST",
+          "value": "{{REDIS_HOST}}"
+        },
+        {
+          "name": "REDIS_PORT",
+          "value": "{{REDIS_PORT}}"
+        },
+        {
+          "name": "REDIS_PASSWORD",
+          "value": "{{REDIS_PASSWORD}}"
+        },
+        {
+          "name": "AWS_REGION",
+          "value": "{{AWS_REGION}}"
+        },
+        {
+          "name": "S3_REPORTS_BUCKET",
+          "value": "{{S3_REPORTS_BUCKET}}"
+        },
+        {
+          "name": "S3_BACKUPS_BUCKET",
+          "value": "{{S3_BACKUPS_BUCKET}}"
+        },
+        {
+          "name": "PAYMENT_API_URL",
+          "value": "{{PAYMENT_API_URL}}"
+        },
+        {
+          "name": "INVENTORY_SERVICE_URL",
+          "value": "{{INVENTORY_SERVICE_URL}}"
+        },
+        {
+          "name": "NOTIFICATION_SERVICE_URL",
+          "value": "{{NOTIFICATION_SERVICE_URL}}"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/resortslite",
+          "awslogs-region": "{{AWS_REGION}}",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}

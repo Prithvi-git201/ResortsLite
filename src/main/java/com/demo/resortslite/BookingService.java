@@ -22,10 +22,8 @@ public class BookingService {
     private static final String DB_USER = "admin";                         // sec-cred-001
     private static final String DB_PASS = "Resort$Pass#2019!";             // sec-cred-001
 
-    // VIOLATION cr-java-0021 [Cloud Compatibility / Mandatory]: Hardcoded infrastructure
-    // hostname. Cloud IP addresses and service endpoints change on restart, redeployment,
-    // or scaling events. Must be externalised to environment variables / Parameter Store.
-    private static final String PAYMENT_API = "http://10.0.1.45:9090/payments/charge"; // cr-java-0021, cr-java-0088
+    // BLOCKER-12 FIXED: Replaced hardcoded IP with environment variable for AWS service endpoint
+    private final String PAYMENT_API = System.getenv().getOrDefault("PAYMENT_API_URL", "https://payment-service:9090/payments/charge");
 
     public Map<String, Object> createBooking(String guestName, String roomType,
                                               String checkIn, String checkOut) {
@@ -99,8 +97,10 @@ public class BookingService {
         return true;
     }
 
+    // BLOCKER-10 FIXED: Using environment variable for service communication
     public String generateReport(String month) {
-        return "Report generation triggered for: " + month + " via " + PAYMENT_API;
+        String reportServiceUrl = System.getenv().getOrDefault("REPORT_SERVICE_URL", "https://report-service:8080");
+        return "Report generation triggered for: " + month + " via " + reportServiceUrl;
     }
 
     private String md5Hash(String input) { // sec-weak-hash-001

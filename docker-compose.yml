@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  resortslite-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: resortslite:latest
+    container_name: resortslite-app
+    ports:
+      - "8080:8080"
+    environment:
+      # Server configuration
+      - SERVER_PORT=8080
+      
+      # JVM options
+      - JAVA_OPTS=-Xmx512m -Xms256m -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0
+      
+      # Spring profile
+      - SPRING_PROFILES_ACTIVE=docker
+      
+      # Database configuration (H2 in-memory for local testing)
+      - DB_URL=jdbc:h2:mem:resortdb;DB_CLOSE_DELAY=-1
+      - DB_USERNAME=sa
+      - DB_PASSWORD=
+      
+      # Redis configuration (connect to external Redis service)
+      - REDIS_HOST=${REDIS_HOST:-redis.example.com}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      
+      # AWS S3 configuration
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - S3_REPORTS_BUCKET=${S3_REPORTS_BUCKET:-resort-reports-bucket}
+      - S3_BACKUPS_BUCKET=${S3_BACKUPS_BUCKET:-resort-backups-bucket}
+      
+      # External service endpoints
+      - PAYMENT_API_URL=${PAYMENT_API_URL:-https://payment-service:9090/charge}
+      - INVENTORY_SERVICE_URL=${INVENTORY_SERVICE_URL:-https://inventory-service:8081/rooms}
+      - NOTIFICATION_SERVICE_URL=${NOTIFICATION_SERVICE_URL:-https://notify-service:7070/send}
+      
+      # Timezone
+      - TZ=UTC
+    networks:
+      - app-network
+    volumes:
+      - ./logs:/app/logs
+      - ./config:/app/config
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  logs:
+  config:

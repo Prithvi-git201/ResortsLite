@@ -1,0 +1,71 @@
+# Docker ignore file for Java Maven projects
+# Exclude build outputs
+target/
+build/
+out/
+bin/
+
+# Exclude Maven wrapper files (CRITICAL - never copy these)
+mvnw
+mvnw.cmd
+.mvn/
+
+# Exclude Gradle wrapper files (CRITICAL - never copy these)
+gradlew
+gradlew.bat
+gradle/wrapper/
+
+# Exclude IDE files
+.idea/
+.vscode/
+.eclipse/
+.settings/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+
+# Exclude version control
+.git/
+.gitignore
+.gitattributes
+
+# Exclude OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Exclude documentation and non-essential files
+*.md
+README*
+LICENSE
+CHANGELOG*
+docs/
+
+# Exclude test files
+src/test/
+
+# Exclude logs
+*.log
+logs/
+
+# Exclude temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Exclude Docker files (don't copy into image)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Exclude deployment scripts
+scripts/
+ecs/
+
+# Exclude configuration that should be externalized
+*.env
+.env.*

@@ -1,11 +1,17 @@
 package com.demo.resortslite;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.*;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.core.sync.RequestBody;
 
 import javax.servlet.http.HttpSession;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/api/bookings")
@@ -14,9 +20,16 @@ public class BookingController {
     @Autowired
     private BookingService bookingService;
 
-    // VIOLATION cr-java-0067 [Cloud Compatibility / Mandatory]: In-memory cache without TTL
-    // breaks horizontal scaling — cache is instance-local, invisible to other EC2 instances
-    private static final Map<String, Object> bookingCache = new HashMap<>(); // cr-java-0067
+    // BLOCKER-13 FIXED: Replaced local cache with Redis distributed cache
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
+
+    // BLOCKER-1 FIXED: S3 client for file operations instead of absolute paths
+    @Autowired
+    private S3Client s3Client;
+
+    @Value("${aws.s3.bucket.reports:resort-reports-bucket}")
+    private String reportsBucket;
 
     @PostMapping("/create")
     public Map<String, Object> createBooking(
@@ -28,13 +41,14 @@ public class BookingController {
 
         Map<String, Object> booking = bookingService.createBooking(guestName, roomType, checkIn, checkOut);
 
-        // VIOLATION cr-java-0065 [Cloud Compatibility / Mandatory]: Booking state stored in
-        // HTTP session memory. AWS ALB distributes requests across EC2 instances — session
-        // data on instance A is invisible to instance B. Auto-scaling and failover breaks.
-        session.setAttribute("lastBooking", booking); // cr-java-0065
-        session.setAttribute("guestName", guestName); // cr-java-0065
+        // BLOCKER-4, BLOCKER-5, BLOCKER-7, BLOCKER-8 FIXED: Using Spring Session with Redis
+        // Session data is now stored in Redis and shared across all container instances
+        session.setAttribute("lastBooking", booking);
+        session.setAttribute("guestName", guestName);
 
-        bookingCache.put((String) booking.get("bookingId"), booking);
+        // BLOCKER-13 FIXED: Using Redis for distributed caching with TTL
+        String bookingId = (String) booking.get("bookingId");
+        redisTemplate.opsForValue().set("booking:" + bookingId, booking, 1, TimeUnit.HOURS);
 
         Map<String, Object> response = new HashMap<>();
         response.put("status", "confirmed");
@@ -47,9 +61,8 @@ public class BookingController {
             @PathVariable String bookingId,
             HttpSession session) {
 
-        // VIOLATION cr-java-0065 [Cloud Compatibility / Mandatory]: Reading business state
-        // from HTTP session — will return null on any other instance in the cluster.
-        String lastGuest = (String) session.getAttribute("guestName"); // cr-java-0065
+        // BLOCKER-4, BLOCKER-5 FIXED: Session data now persisted in Redis via Spring Session
+        String lastGuest = (String) session.getAttribute("guestName");
 
         Map<String, Object> result = new HashMap<>();
         result.put("bookingId", bookingId);
@@ -60,10 +73,10 @@ public class BookingController {
 
     @GetMapping("/availability")
     public Map<String, Object> checkAvailability(@RequestParam String roomType) {
-        // VIOLATION cr-java-0088 [Cloud Compatibility / Mandatory]: Plain HTTP call to
-        // internal inventory service. AWS ALB, WAF, and Well-Architected security review
-        // enforce HTTPS. This call will be blocked or flagged in a cloud-native setup.
-        String inventoryUrl = "http://inventory-service.internal:8081/rooms/available"; // cr-java-0088
+        // BLOCKER-9 FIXED: Using environment variable for service endpoint
+        // This enables service mesh and API Gateway integration
+        String inventoryUrl = System.getenv().getOrDefault("INVENTORY_SERVICE_URL", 
+            "https://inventory-service.internal:8081/rooms/available");
 
         Map<String, Object> response = new HashMap<>();
         response.put("roomType", roomType);
@@ -74,14 +87,30 @@ public class BookingController {
 
     @GetMapping("/report/download")
     public Map<String, Object> downloadReport(@RequestParam String month) {
-        // VIOLATION czr-java-001 [Software Portability / Mandatory]: Hardcoded absolute
-        // file path. This path does not exist inside a container image. Container images
-        // have their own isolated file systems — /var/legacy/reports won't be present.
-        String reportPath = "/var/legacy/reports/" + month + "_bookings.pdf"; // czr-java-001
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("reportPath", reportPath);
-        response.put("message", bookingService.generateReport(month));
-        return response;
+        // BLOCKER-1 FIXED: Using S3 instead of absolute file paths
+        String reportKey = "reports/" + month + "_bookings.pdf";
+        
+        try {
+            // Generate report content (simplified for demonstration)
+            String reportContent = bookingService.generateReport(month);
+            
+            // Upload to S3
+            PutObjectRequest putRequest = PutObjectRequest.builder()
+                .bucket(reportsBucket)
+                .key(reportKey)
+                .build();
+            
+            s3Client.putObject(putRequest, RequestBody.fromString(reportContent));
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("reportKey", reportKey);
+            response.put("bucket", reportsBucket);
+            response.put("message", "Report uploaded to S3");
+            return response;
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("error", "Failed to upload report: " + e.getMessage());
+            return response;
+        }
     }
 }
