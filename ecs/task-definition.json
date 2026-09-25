@@ -1,0 +1,81 @@
+{
+  "family": "resortslite-task",
+  "requiresCompatibilities": ["FARGATE"],
+  "networkMode": "awsvpc",
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::{{ACCOUNT_ID}}:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::{{ACCOUNT_ID}}:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "resortslite",
+      "image": "{{IMAGE_URI}}",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        { "name": "SPRING_PROFILES_ACTIVE", "value": "docker" },
+        { "name": "SERVER_PORT",            "value": "8080" },
+        { "name": "TZ",                     "value": "UTC" },
+        { "name": "JAVA_OPTS",              "value": "-Xms256m -Xmx512m -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -Djava.security.egd=file:/dev/./urandom" },
+        { "name": "REPORT_BASE_PATH",       "value": "/mnt/efs/reports/" },
+        { "name": "BACKUP_PATH",            "value": "/mnt/efs/backups/nightly/" },
+        { "name": "PAYMENT_API_URL",        "value": "http://payment-service:9090/payments/charge" },
+        { "name": "MEMCACHED_ENDPOINT",     "value": "localhost:11211" }
+      ],
+      "secrets": [
+        {
+          "name": "JWT_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:{{AWS_REGION}}:{{ACCOUNT_ID}}:secret:resortslite/jwt-secret"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/resortslite",
+          "awslogs-region": "{{AWS_REGION}}",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "mountPoints": [
+        {
+          "sourceVolume": "efs-reports",
+          "containerPath": "/mnt/efs/reports",
+          "readOnly": false
+        },
+        {
+          "sourceVolume": "efs-backups",
+          "containerPath": "/mnt/efs/backups/nightly",
+          "readOnly": false
+        }
+      ]
+    }
+  ],
+  "volumes": [
+    {
+      "name": "efs-reports",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "{{EFS_FILE_SYSTEM_ID}}",
+        "rootDirectory": "/reports",
+        "transitEncryption": "ENABLED"
+      }
+    },
+    {
+      "name": "efs-backups",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "{{EFS_FILE_SYSTEM_ID}}",
+        "rootDirectory": "/backups/nightly",
+        "transitEncryption": "ENABLED"
+      }
+    }
+  ],
+  "tags": [
+    { "key": "Application", "value": "resortslite" },
+    { "key": "Environment", "value": "production" },
+    { "key": "ManagedBy",   "value": "ecs" }
+  ]
+}

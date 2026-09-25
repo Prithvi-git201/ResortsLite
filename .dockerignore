@@ -1,0 +1,60 @@
+# =============================================================================
+# .dockerignore — ResortsLite
+# =============================================================================
+
+# Build output
+target/
+
+# Maven wrapper (NEVER used inside Docker — system mvn is used instead)
+mvnw
+mvnw.cmd
+.mvn/
+
+# Gradle wrapper (not applicable but excluded for safety)
+gradlew
+gradlew.bat
+gradle/wrapper/
+
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# IDE / editor artefacts
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+
+# OS artefacts
+.DS_Store
+Thumbs.db
+
+# Documentation
+*.md
+docs/
+
+# Test reports
+**/surefire-reports/
+**/failsafe-reports/
+
+# Logs
+logs/
+*.log
+
+# Docker files (not needed inside the image)
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# Scripts
+scripts/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+Jenkinsfile

@@ -1,0 +1,72 @@
+version: "3.9"
+
+# =============================================================================
+# ResortsLite — Docker Compose (application only)
+# External services (DB, cache, payment, etc.) are provided separately.
+# =============================================================================
+
+services:
+  resortslite:
+    image: resortslite:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: resortslite-app
+    ports:
+      - "8080:8080"
+    environment:
+      # Spring
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: "8080"
+
+      # JVM
+      JAVA_OPTS: "-Xms256m -Xmx512m -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -Djava.security.egd=file:/dev/./urandom"
+
+      # JWT — override with a real secret in production
+      JWT_SECRET: "changeme-local-dev-secret-256bit!!"
+
+      # Distributed cache (Amazon ElastiCache Memcached in production)
+      MEMCACHED_ENDPOINT: "localhost:11211"
+
+      # External service endpoints
+      PAYMENT_API_URL: "http://payment-service:9090/payments/charge"
+
+      # EFS-backed file paths (local bind-mount equivalents for development)
+      REPORT_BASE_PATH: "/mnt/efs/reports/"
+      BACKUP_PATH: "/mnt/efs/backups/nightly/"
+
+      # Timezone
+      TZ: UTC
+
+    volumes:
+      - reports-data:/mnt/efs/reports
+      - backups-data:/mnt/efs/backups/nightly
+      - ./logs:/app/logs
+
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+    restart: unless-stopped
+
+    networks:
+      - app-network
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  reports-data:
+    driver: local
+  backups-data:
+    driver: local
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  app-network:
+    driver: bridge
