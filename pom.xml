@@ -47,6 +47,54 @@
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!-- AWS SDK v2 for S3 - replaces hard-coded file path operations (cr-java-0061) -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>2.25.60</version>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>regions</artifactId>
+            <version>2.25.60</version>
+        </dependency>
+        <!-- AWS Secrets Manager SDK — replaces hard-coded DB credentials (cr-java-0069) -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>secretsmanager</artifactId>
+            <version>2.25.60</version>
+        </dependency>
+        <!-- Jackson for parsing Secrets Manager JSON responses -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <!-- AWS SSM Parameter Store SDK — externalises hard-coded environment URLs (cr-java-0071) -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>ssm</artifactId>
+            <version>2.25.60</version>
+        </dependency>
+        <!-- cr-java-0065: Spring Session with Redis — replaces in-process HTTP session storage.
+             All session attributes are stored in Amazon ElastiCache for Redis, enabling
+             stateless application instances and safe horizontal scaling behind AWS ALB. -->
+        <dependency>
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-data-redis</artifactId>
+        </dependency>
+        <!-- Lettuce Redis client required by Spring Session Data Redis -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <!-- cr-java-0090: Amazon Cognito Identity Provider SDK — replaces file-based
+             authentication. User identity management (token validation, user lookup)
+             is delegated to Amazon Cognito instead of local MD5-based credential hashing. -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>cognitoidentityprovider</artifactId>
+            <version>2.25.60</version>
+        </dependency>
     </dependencies>
 
     <build>
