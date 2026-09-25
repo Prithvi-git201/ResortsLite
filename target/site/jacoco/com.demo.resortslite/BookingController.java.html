@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BookingController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ResortsLite</a> &gt; <a href="index.source.html" class="el_package">com.demo.resortslite</a> &gt; <span class="el_source">BookingController.java</span></div><h1>BookingController.java</h1><pre class="source lang-java linenums">package com.demo.resortslite;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+// Updated: replaced javax.servlet.http.HttpSession with jakarta.servlet.http.HttpSession
+// for Java 21 / Spring Boot 3.x compatibility (JAVA8_TO_21_JAKARTA_EE_MIGRATION)
+import jakarta.servlet.http.HttpSession;
+import java.util.HashMap;
+import java.util.Map;
+
+@RestController
+@RequestMapping(&quot;/api/bookings&quot;)
+<span class="fc" id="L14">public class BookingController {</span>
+
+    @Autowired
+    private BookingService bookingService;
+
+    // NOTE: In-memory cache without TTL — instance-local, not suitable for horizontal scaling.
+    // Consider replacing with a distributed cache (e.g., Redis) for cloud deployments.
+<span class="fc" id="L21">    private static final Map&lt;String, Object&gt; bookingCache = new HashMap&lt;&gt;();</span>
+
+    @PostMapping(&quot;/create&quot;)
+    public Map&lt;String, Object&gt; createBooking(
+            @RequestParam String guestName,
+            @RequestParam String roomType,
+            @RequestParam String checkIn,
+            @RequestParam String checkOut,
+            HttpSession session) {
+
+<span class="fc" id="L31">        Map&lt;String, Object&gt; booking = bookingService.createBooking(guestName, roomType, checkIn, checkOut);</span>
+
+        // NOTE: Booking state stored in HTTP session — not suitable for distributed deployments.
+        // Consider externalising session state to a distributed store (e.g., Redis / Spring Session).
+<span class="fc" id="L35">        session.setAttribute(&quot;lastBooking&quot;, booking);</span>
+<span class="fc" id="L36">        session.setAttribute(&quot;guestName&quot;, guestName);</span>
+
+<span class="fc" id="L38">        bookingCache.put((String) booking.get(&quot;bookingId&quot;), booking);</span>
+
+<span class="fc" id="L40">        Map&lt;String, Object&gt; response = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L41">        response.put(&quot;status&quot;, &quot;confirmed&quot;);</span>
+<span class="fc" id="L42">        response.put(&quot;booking&quot;, booking);</span>
+<span class="fc" id="L43">        return response;</span>
+    }
+
+    @GetMapping(&quot;/status/{bookingId}&quot;)
+    public Map&lt;String, Object&gt; getBookingStatus(
+            @PathVariable String bookingId,
+            HttpSession session) {
+
+        // NOTE: Reading business state from HTTP session — will return null on any other
+        // instance in a cluster. Consider distributed session management.
+<span class="fc" id="L53">        String lastGuest = (String) session.getAttribute(&quot;guestName&quot;);</span>
+
+<span class="fc" id="L55">        Map&lt;String, Object&gt; result = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L56">        result.put(&quot;bookingId&quot;, bookingId);</span>
+<span class="fc" id="L57">        result.put(&quot;sessionGuest&quot;, lastGuest);</span>
+<span class="fc" id="L58">        result.put(&quot;details&quot;, bookingService.getBookingById(bookingId));</span>
+<span class="fc" id="L59">        return result;</span>
+    }
+
+    @GetMapping(&quot;/availability&quot;)
+    public Map&lt;String, Object&gt; checkAvailability(@RequestParam String roomType) {
+        // NOTE: Plain HTTP call to internal inventory service.
+        // Consider using HTTPS and externalising the endpoint to configuration.
+<span class="fc" id="L66">        String inventoryUrl = &quot;http://inventory-service.internal:8081/rooms/available&quot;;</span>
+
+<span class="fc" id="L68">        Map&lt;String, Object&gt; response = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L69">        response.put(&quot;roomType&quot;, roomType);</span>
+<span class="fc" id="L70">        response.put(&quot;inventoryEndpoint&quot;, inventoryUrl);</span>
+<span class="fc" id="L71">        response.put(&quot;available&quot;, bookingService.isRoomAvailable(roomType));</span>
+<span class="fc" id="L72">        return response;</span>
+    }
+
+    @GetMapping(&quot;/report/download&quot;)
+    public Map&lt;String, Object&gt; downloadReport(@RequestParam String month) {
+        // NOTE: Hardcoded absolute file path — not suitable for containerised deployments.
+        // Consider using cloud object storage (e.g., S3) or configurable paths.
+<span class="fc" id="L79">        String reportPath = &quot;/var/legacy/reports/&quot; + month + &quot;_bookings.pdf&quot;;</span>
+
+<span class="fc" id="L81">        Map&lt;String, Object&gt; response = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L82">        response.put(&quot;reportPath&quot;, reportPath);</span>
+<span class="fc" id="L83">        response.put(&quot;message&quot;, bookingService.generateReport(month));</span>
+<span class="fc" id="L84">        return response;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

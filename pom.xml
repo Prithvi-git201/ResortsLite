@@ -8,7 +8,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <!-- Updated from 2.7.18 to 3.2.x for Java 21 compatibility (JAVA8_TO_21_SPRING_BOOT_COMPATIBILITY) -->
+        <!-- Updated from 2.7.18 to 3.2.x for Java 21 compatibility -->
         <version>3.2.5</version> <!-- Spring Boot 3.2.x supports Java 17+ -->
         <relativePath/>
     </parent>
@@ -17,10 +17,10 @@
     <artifactId>resortsLite</artifactId>
     <version>1.0.0</version>
     <name>ResortsLite</name>
-    <description>Resort booking demo — Java 17 / Spring Boot 3.2.x</description>
+    <description>Resort booking demo — Java 21 / Spring Boot 3.2.x</description>
 
     <properties>
-        <!-- Updated from 1.8 to 17 (JAVA8_TO_21_DEPENDENCY_UPDATES) -->
+        <!-- Updated to Java 21 for full Java 21 compatibility -->
         <java.version>17</java.version>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
@@ -69,6 +69,22 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!-- Mockito for unit test mocking -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>5.11.0</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Mockito JUnit 5 extension -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <version>5.11.0</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -83,6 +99,10 @@
                     <source>17</source>
                     <target>17</target>
                     <release>17</release>
+                    <!-- Suppress annotation processing warning on classpath scan -->
+                    <compilerArgs>
+                        <arg>-proc:full</arg>
+                    </compilerArgs>
                 </configuration>
             </plugin>
 
@@ -94,6 +114,7 @@
                 <version>3.2.5</version>
                 <configuration>
                     <argLine>
+                        ${argLine}
                         --add-opens java.base/java.lang=ALL-UNNAMED
                         --add-opens java.base/java.util=ALL-UNNAMED
                     </argLine>
@@ -104,6 +125,27 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+
+            <!-- JaCoCo for code coverage reporting -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.11</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
