@@ -19,7 +19,26 @@
 
     <properties>
         <java.version>1.8</java.version>
+        <!-- AWS SDK v2 BOM version for S3 integration (cr-java-0061) -->
+        <aws.sdk.version>2.25.40</aws.sdk.version>
+        <!-- Jackson version for JSON parsing of Secrets Manager responses -->
+        <jackson.version>2.15.2</jackson.version>
+        <!-- Spring Session Redis version for distributed session management (cr-java-0065) -->
+        <spring-session.version>2.7.4</spring-session.version>
     </properties>
+
+    <!-- AWS SDK v2 BOM for dependency management (cr-java-0061) -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>${aws.sdk.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -46,6 +65,49 @@
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
+        </dependency>
+        <!-- AWS SDK v2 S3 client — replaces hard-coded file path operations (cr-java-0061) -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+        </dependency>
+        <!-- AWS SDK v2 URL connection client (required HTTP client for SDK v2) -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>url-connection-client</artifactId>
+        </dependency>
+        <!-- AWS Secrets Manager SDK v2 — replaces hard-coded DB credentials (cr-java-0069) -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>secretsmanager</artifactId>
+        </dependency>
+        <!-- Jackson Databind for parsing Secrets Manager JSON secret values (cr-java-0069) -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+        <!-- Spring Session Data Redis — replaces in-process HttpSession with distributed
+             Redis-backed session storage via Amazon ElastiCache (cr-java-0065).
+             Spring Session transparently intercepts HttpSession calls and stores/retrieves
+             session data from ElastiCache, enabling stateless application instances. -->
+        <dependency>
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-data-redis</artifactId>
+            <version>${spring-session.version}</version>
+        </dependency>
+        <!-- Spring Boot Starter Data Redis — Lettuce client for ElastiCache connectivity -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <!-- AWS SDK v2 Cognito Identity Provider — replaces local file-based authentication
+             and MD5-based token generation with Amazon Cognito User Pools (cr-java-0090).
+             Provides AdminInitiateAuth for user authentication and AdminGetUser for
+             user attribute retrieval, delegating all identity management to Cognito. -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>cognitoidentityprovider</artifactId>
         </dependency>
     </dependencies>
 
