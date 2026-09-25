@@ -1,0 +1,140 @@
+{
+  "_comment": [
+    "cz-java-0069 FIX — ALB Target Group Stickiness Configuration",
+    "Rule: In-Memory Session Storage (cz-java-0069)",
+    "Severity: HIGH | Category: state-&-session-management",
+    "",
+    "Remediation Strategy: Configure ECS Service with ALB Session Affinity as Transitional Strategy",
+    "on ECS Fargate to minimise session disruption while the full Redis migration is completed.",
+    "",
+    "Source violations fixed:",
+    "  BookingController.java line 34: session.setAttribute('lastBooking', booking)",
+    "  BookingController.java line 35: session.setAttribute('guestName', guestName)",
+    "",
+    "How to apply:",
+    "  Option A — AWS CLI:",
+    "    aws elbv2 modify-target-group-attributes \\",
+    "      --target-group-arn <TARGET_GROUP_ARN> \\",
+    "      --attributes Key=stickiness.enabled,Value=true \\",
+    "                   Key=stickiness.type,Value=lb_cookie \\",
+    "                   Key=stickiness.lb_cookie.duration_seconds,Value=86400",
+    "",
+    "  Option B — CloudFormation / CDK: see TargetGroupAttributes section below.",
+    "",
+    "  Option C — Terraform:",
+    "    stickiness { type = 'lb_cookie'; cookie_duration = 86400; enabled = true }",
+    "",
+    "Long-term recommendation:",
+    "  Replace ALB stickiness with Spring Session + Amazon ElastiCache (Redis) so that",
+    "  session state is shared across all ECS Fargate tasks and survives container restarts."
+  ],
+
+  "albTargetGroupStickiness": {
+    "description": "Enable duration-based ALB sticky sessions for the ECS Fargate target group",
+    "targetGroupAttributes": [
+      {
+        "key": "stickiness.enabled",
+        "value": "true",
+        "comment": "Activates sticky sessions on the ALB target group"
+      },
+      {
+        "key": "stickiness.type",
+        "value": "lb_cookie",
+        "comment": "Duration-based stickiness using an ALB-generated cookie (AWSALB)"
+      },
+      {
+        "key": "stickiness.lb_cookie.duration_seconds",
+        "value": "86400",
+        "comment": "Cookie TTL: 24 hours — adjust to match your session timeout"
+      }
+    ]
+  },
+
+  "cloudFormationSnippet": {
+    "description": "CloudFormation resource snippet for ALB Target Group with stickiness enabled",
+    "Type": "AWS::ElasticLoadBalancingV2::TargetGroup",
+    "Properties": {
+      "Name": "resorts-lite-tg",
+      "Protocol": "HTTP",
+      "Port": 8080,
+      "VpcId": {"Ref": "VpcId"},
+      "TargetType": "ip",
+      "HealthCheckPath": "/actuator/health",
+      "HealthCheckIntervalSeconds": 30,
+      "HealthCheckTimeoutSeconds": 5,
+      "HealthyThresholdCount": 2,
+      "UnhealthyThresholdCount": 3,
+      "TargetGroupAttributes": [
+        {
+          "Key": "stickiness.enabled",
+          "Value": "true"
+        },
+        {
+          "Key": "stickiness.type",
+          "Value": "lb_cookie"
+        },
+        {
+          "Key": "stickiness.lb_cookie.duration_seconds",
+          "Value": "86400"
+        }
+      ]
+    }
+  },
+
+  "ecsServiceConfiguration": {
+    "description": "ECS Fargate service configuration referencing the sticky target group",
+    "Type": "AWS::ECS::Service",
+    "Properties": {
+      "Cluster": {"Ref": "EcsCluster"},
+      "TaskDefinition": {"Ref": "ResortsLiteTaskDefinition"},
+      "LaunchType": "FARGATE",
+      "DesiredCount": 2,
+      "NetworkConfiguration": {
+        "AwsvpcConfiguration": {
+          "Subnets": [{"Ref": "PrivateSubnet1"}, {"Ref": "PrivateSubnet2"}],
+          "SecurityGroups": [{"Ref": "EcsSecurityGroup"}],
+          "AssignPublicIp": "DISABLED"
+        }
+      },
+      "LoadBalancers": [
+        {
+          "ContainerName": "resorts-lite",
+          "ContainerPort": 8080,
+          "TargetGroupArn": {"Ref": "ResortsLiteTargetGroup"}
+        }
+      ]
+    }
+  },
+
+  "taskDefinitionHealthCheck": {
+    "description": "ECS task-level health check using the Spring Boot Actuator endpoint",
+    "HealthCheck": {
+      "Command": [
+        "CMD-SHELL",
+        "curl -f http://localhost:8080/actuator/health || exit 1"
+      ],
+      "Interval": 30,
+      "Timeout": 5,
+      "Retries": 3,
+      "StartPeriod": 60
+    }
+  },
+
+  "migrationRoadmap": {
+    "phase1_transitional": {
+      "description": "ALB sticky sessions (this file) — low effort, minimises disruption",
+      "effort": "Low",
+      "risk": "Medium — sessions still lost on task replacement/restart"
+    },
+    "phase2_longTerm": {
+      "description": "Spring Session + Amazon ElastiCache (Redis) for fully distributed session storage",
+      "effort": "Medium",
+      "risk": "Low — sessions survive container restarts and horizontal scaling",
+      "dependencies": [
+        "spring-session-data-redis",
+        "Amazon ElastiCache Redis cluster",
+        "REDIS_HOST and REDIS_PORT environment variables in ECS task definition"
+      ]
+    }
+  }
+}

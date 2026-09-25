@@ -1,0 +1,59 @@
+version: "3.8"
+
+# =============================================================================
+# docker-compose.yml for ResortsLite Spring Boot Application
+# Application service ONLY — external services (DB, cache, etc.) are provided
+# separately via environment variables.
+# =============================================================================
+
+services:
+  resortsLite:
+    image: resortsLite:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: resortsLite-app
+    ports:
+      - "8080:8080"
+    environment:
+      # Spring profile
+      - SPRING_PROFILES_ACTIVE=docker
+      # JVM settings
+      - JAVA_OPTS=-Xmx512m -Xms256m -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom -Dfile.encoding=UTF-8 -Duser.timezone=UTC
+      # Application port
+      - SERVER_PORT=8080
+      # JWT secret — override with a strong secret in production
+      - JWT_SECRET=default-dev-secret-change-in-production-min32chars
+      # Memcached endpoint (Amazon ElastiCache or local for dev)
+      - MEMCACHED_ENDPOINT=localhost:11211
+      # External service endpoints — override for your environment
+      - PAYMENT_SERVICE_URL=http://payment-service:9090/payments/charge
+      - APP_PAYMENT_ENDPOINT=http://payment-svc.internal:9090/charge
+      - APP_INVENTORY_ENDPOINT=http://inventory-svc.internal:8081/rooms
+      - APP_NOTIFICATION_ENDPOINT=http://notify.internal:7070/send
+      # Report storage path (EFS mount in ECS; local volume in compose)
+      - REPORT_BASE_PATH=/mnt/efs/reports
+      # Timezone
+      - TZ=UTC
+    volumes:
+      - reports-data:/mnt/efs/reports
+      - app-logs:/app/logs
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  reports-data:
+    driver: local
+  app-logs:
+    driver: local
+
+networks:
+  app-network:
+    driver: bridge

@@ -1,6 +1,7 @@
 package com.demo.resortslite;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -22,10 +23,13 @@ public class BookingService {
     private static final String DB_USER = "admin";                         // sec-cred-001
     private static final String DB_PASS = "Resort$Pass#2019!";             // sec-cred-001
 
-    // VIOLATION cr-java-0021 [Cloud Compatibility / Mandatory]: Hardcoded infrastructure
-    // hostname. Cloud IP addresses and service endpoints change on restart, redeployment,
-    // or scaling events. Must be externalised to environment variables / Parameter Store.
-    private static final String PAYMENT_API = "http://10.0.1.45:9090/payments/charge"; // cr-java-0021, cr-java-0088
+    // cz-java-0062 FIX: Replaced hardcoded IP address (10.0.1.45) with an environment variable
+    // injected via AWS Service Connect on ECS Fargate. Containers discover each other by logical
+    // service name; the PAYMENT_SERVICE_URL environment variable is set in the ECS task definition
+    // to the Service Connect endpoint (e.g. http://payment-service:9090/payments/charge).
+    // This removes the hardcoded internal IP that breaks on container restart or redeployment.
+    @Value("${PAYMENT_SERVICE_URL:http://payment-service:9090/payments/charge}")
+    private String paymentApi;
 
     public Map<String, Object> createBooking(String guestName, String roomType,
                                               String checkIn, String checkOut) {
@@ -100,7 +104,7 @@ public class BookingService {
     }
 
     public String generateReport(String month) {
-        return "Report generation triggered for: " + month + " via " + PAYMENT_API;
+        return "Report generation triggered for: " + month + " via " + paymentApi;
     }
 
     private String md5Hash(String input) { // sec-weak-hash-001
