@@ -21,6 +21,18 @@
         <java.version>1.8</java.version>
     </properties>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>2.25.11</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -46,6 +58,42 @@
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
+        </dependency>
+        <!-- AWS SDK v2 S3 – replaces hard-coded file-path operations (cr-java-0061) -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+        </dependency>
+        <!-- cr-java-0069 FIX: AWS Secrets Manager SDK for retrieving DB credentials at runtime -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>secretsmanager</artifactId>
+        </dependency>
+        <!--
+            cr-java-0065 FIX: Spring Session Data Redis + Spring Boot Data Redis.
+            These dependencies enable Amazon ElastiCache for Redis as the centralised,
+            distributed HTTP session store via Spring Session.  The HttpSession API in
+            BookingController is unchanged; Spring Session transparently serialises every
+            setAttribute/getAttribute call to the Redis cluster, eliminating server
+            affinity and enabling stateless horizontal scaling across EC2/ECS instances.
+        -->
+        <dependency>
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-data-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <!--
+            cr-java-0090 FIX: Amazon Cognito Identity Provider SDK for user identity management.
+            Replaces file-based MD5 hash authentication token generation with Amazon Cognito
+            User Pool registration, providing centralized, encrypted, and auditable
+            authentication with built-in user lifecycle management.
+        -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>cognitoidentityprovider</artifactId>
         </dependency>
     </dependencies>
 
