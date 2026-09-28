@@ -19,9 +19,64 @@
 
     <properties>
         <java.version>1.8</java.version>
+        <aws.sdk.version>2.25.40</aws.sdk.version>
     </properties>
 
     <dependencies>
+        <!-- cr-java-0065 FIX: Spring Session Data Redis for distributed session management
+             backed by Amazon ElastiCache for Redis. Replaces in-process HttpSession storage
+             with a centralized, cluster-safe session store so all EC2 instances share the
+             same session data and horizontal scaling / failover works correctly. -->
+        <!-- cr-java-0067 FIX: Spring Boot Starter Data Redis provides RedisTemplate
+             auto-configuration for Amazon ElastiCache for Redis. Replaces the previous
+             unbounded in-memory HashMap cache (bookingCache) with a TTL-controlled,
+             centralized Redis cache shared across all EC2 instances. Ensures controlled
+             memory growth, consistent cache state, and automatic entry expiration. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-data-redis</artifactId>
+        </dependency>
+        <!-- Lettuce Redis client required by Spring Session Data Redis -->
+        <dependency>
+            <groupId>io.lettuce</groupId>
+            <artifactId>lettuce-core</artifactId>
+        </dependency>
+
+        <!-- AWS SDK v2 S3 dependency for cloud object storage -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>ssm</artifactId>
+            <version>${aws.sdk.version}</version>
+        </dependency>
+        <!-- AWS SDK v2 S3 dependency for cloud object storage -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>secretsmanager</artifactId>
+            <version>${aws.sdk.version}</version>
+        </dependency>
+        <!-- cr-java-0090 FIX: Amazon Cognito Identity Provider SDK for cloud-native
+             user authentication. Replaces file-based MD5 authentication token generation
+             with Amazon Cognito User Pool identity management. -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>cognitoidentityprovider</artifactId>
+            <version>${aws.sdk.version}</version>
+        </dependency>
+        <!-- Jackson databind for JSON parsing of AWS Secrets Manager secret values -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <!-- AWS SDK v2 S3 dependency for cloud object storage -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>${aws.sdk.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
