@@ -19,6 +19,7 @@
 
     <properties>
         <java.version>1.8</java.version>
+        <aws.sdk.version>2.25.27</aws.sdk.version>
     </properties>
 
     <dependencies>
@@ -29,6 +30,19 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+        <!-- cr-java-0065 FIX: Spring Session Data Redis — stores HTTP session state in
+             Amazon ElastiCache for Redis, enabling stateless application instances and
+             horizontal scaling without server affinity. -->
+        <dependency>
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-data-redis</artifactId>
+        </dependency>
+        <!-- cr-java-0065 FIX: Spring Boot starter for Spring Data Redis (Lettuce client)
+             — provides RedisTemplate and connection pooling to ElastiCache. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
         <!-- SECURITY VIOLATION: log4j 2.14.1 has critical CVE-2021-44228 (Log4Shell) -->
         <dependency>
@@ -46,6 +60,38 @@
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
+        </dependency>
+        <!-- AWS SDK v2 S3 dependency for cloud object storage (replaces local file paths) -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>${aws.sdk.version}</version>
+        </dependency>
+        <!-- AWS SDK v2 URL Connection HTTP client -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>url-connection-client</artifactId>
+            <version>${aws.sdk.version}</version>
+        </dependency>
+        <!-- AWS SDK v2 Secrets Manager — cr-java-0069: replaces hard-coded DB credentials -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>secretsmanager</artifactId>
+            <version>${aws.sdk.version}</version>
+        </dependency>
+        <!-- AWS SDK v2 SSM — cr-java-0071: replaces hard-coded environment URLs with Parameter Store lookups -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>ssm</artifactId>
+            <version>${aws.sdk.version}</version>
+        </dependency>
+        <!-- AWS SDK v2 Cognito Identity Provider — cr-java-0090: replaces file-based
+             authentication with Amazon Cognito for user identity management.
+             Provides InitiateAuth, GetUser, and AdminGetUser operations. -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>cognitoidentityprovider</artifactId>
+            <version>${aws.sdk.version}</version>
         </dependency>
     </dependencies>
 
