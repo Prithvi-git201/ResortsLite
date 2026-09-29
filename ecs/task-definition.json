@@ -1,0 +1,97 @@
+{
+  "family": "resortslite-task",
+  "requiresCompatibilities": ["FARGATE"],
+  "networkMode": "awsvpc",
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::{{ACCOUNT_ID}}:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::{{ACCOUNT_ID}}:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "resortslite",
+      "image": "{{IMAGE_URI}}",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        { "name": "SPRING_PROFILES_ACTIVE", "value": "docker" },
+        { "name": "SERVER_PORT",            "value": "8080" },
+        { "name": "TZ",                     "value": "UTC" },
+        { "name": "JAVA_OPTS",              "value": "-Xmx512m -Xms256m -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom -Dfile.encoding=UTF-8 -Duser.timezone=UTC" },
+        { "name": "ALB_STICKINESS_ENABLED",   "value": "true" },
+        { "name": "ALB_COOKIE_DURATION_SECS", "value": "86400" },
+        { "name": "REPORT_BASE_PATH",         "value": "/mnt/efs/reports" },
+        { "name": "BACKUP_PATH",              "value": "/mnt/efs/backups" }
+      ],
+      "secrets": [
+        {
+          "name": "JWT_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:{{AWS_REGION}}:{{ACCOUNT_ID}}:secret:resortslite/jwt-secret"
+        },
+        {
+          "name": "MEMCACHED_ENDPOINT",
+          "valueFrom": "arn:aws:ssm:{{AWS_REGION}}:{{ACCOUNT_ID}}:parameter/resortslite/prod/memcached/endpoint"
+        },
+        {
+          "name": "MEMCACHED_EXPIRY_SECS",
+          "valueFrom": "arn:aws:ssm:{{AWS_REGION}}:{{ACCOUNT_ID}}:parameter/resortslite/prod/memcached/expiry-secs"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/resortslite",
+          "awslogs-region": "{{AWS_REGION}}",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "mountPoints": [
+        {
+          "sourceVolume": "efs-reports",
+          "containerPath": "/mnt/efs/reports",
+          "readOnly": false
+        },
+        {
+          "sourceVolume": "efs-backups",
+          "containerPath": "/mnt/efs/backups",
+          "readOnly": false
+        }
+      ],
+      "ulimits": [
+        {
+          "name": "nofile",
+          "softLimit": 65536,
+          "hardLimit": 65536
+        }
+      ],
+      "stopTimeout": 30
+    }
+  ],
+  "volumes": [
+    {
+      "name": "efs-reports",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "{{EFS_FILE_SYSTEM_ID}}",
+        "rootDirectory": "/reports",
+        "transitEncryption": "ENABLED"
+      }
+    },
+    {
+      "name": "efs-backups",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "{{EFS_FILE_SYSTEM_ID}}",
+        "rootDirectory": "/backups",
+        "transitEncryption": "ENABLED"
+      }
+    }
+  ],
+  "tags": [
+    { "key": "Application", "value": "resortslite" },
+    { "key": "Environment", "value": "production" },
+    { "key": "ManagedBy",   "value": "ecs" }
+  ]
+}
