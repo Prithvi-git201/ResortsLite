@@ -5,49 +5,60 @@ import org.springframework.stereotype.Service;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 
 @Service
 public class ReportService {
 
-    // VIOLATION czr-java-001 [Software Portability / Mandatory]: Hardcoded absolute path.
-    // /var/legacy/reports does not exist in a Docker container image. Breaks containerisation.
-    // Must use volume mounts, cloud object storage (S3 / Azure Blob), or environment variable.
-    private static final String REPORT_BASE_PATH = "/var/legacy/reports/"; // czr-java-001
+    // Updated czr-java-001: base path externalised to environment variable; falls back to a
+    // portable OS temp directory so the application works inside containers and on any OS.
+    // (replaces the original hardcoded absolute path /var/legacy/reports)
+    private static final String REPORT_BASE_PATH =
+            System.getenv().getOrDefault("REPORT_BASE_PATH",
+                    System.getProperty("java.io.tmpdir") + File.separator + "reports" + File.separator);
 
-    // VIOLATION czr-java-001 [Software Portability / Mandatory]: Windows-style absolute path
-    // will fail on any Linux-based container or cloud host. Hard dependency on OS path structure.
-    private static final String BACKUP_PATH = "C:\\ResortBackups\\nightly\\"; // czr-java-001
+    // Updated czr-java-001: backup path externalised to environment variable;
+    // Windows-style absolute path replaced with a portable, OS-neutral default.
+    private static final String BACKUP_PATH =
+            System.getenv().getOrDefault("BACKUP_PATH",
+                    System.getProperty("java.io.tmpdir") + File.separator + "backups" + File.separator);
 
-    // VIOLATION [Software Portability / High]: Fixed server port hardcoded in application logic.
-    // Container orchestration (ECS / EKS) dynamically assigns ports. Hardcoded ports prevent
-    // dynamic port binding required for modern container deployment and service discovery.
-    private static final int SERVER_PORT = 8080; // czr-port-001
+    // Updated czr-port-001: server port externalised to environment variable so container
+    // orchestrators (ECS / EKS) can assign ports dynamically.
+    private static final int SERVER_PORT =
+            Integer.parseInt(System.getenv().getOrDefault("SERVER_PORT", "8080"));
 
+    /**
+     * Generates a monthly CSV report and writes it to the configured report directory.
+     *
+     * @param month the month label (e.g. "March")
+     * @param year  the four-digit year (e.g. "2024")
+     * @return a map containing the generation status and output path
+     */
     public Map<String, Object> generateMonthlyReport(String month, String year) {
         String fileName = "resort_report_" + month + "_" + year + ".csv";
-        String fullPath = REPORT_BASE_PATH + fileName; // czr-java-001
+        String fullPath = REPORT_BASE_PATH + fileName;
 
         Map<String, Object> result = new HashMap<>();
 
         try {
-            File reportDir = new File(REPORT_BASE_PATH); // czr-java-001
+            File reportDir = new File(REPORT_BASE_PATH);
             if (!reportDir.exists()) {
                 reportDir.mkdirs();
             }
 
-            FileWriter writer = new FileWriter(fullPath);
-            writer.write("BookingID,GuestName,RoomType,CheckIn,CheckOut,Amount\n");
-            writer.write("BK-001,John Smith,SUITE,2024-03-01,2024-03-05,1750.00\n");
-            writer.write("BK-002,Jane Doe,DELUXE,2024-03-03,2024-03-07,960.00\n");
-            writer.close();
+            try (FileWriter writer = new FileWriter(fullPath)) {
+                writer.write("BookingID,GuestName,RoomType,CheckIn,CheckOut,Amount\n");
+                writer.write("BK-001,John Smith,SUITE,2024-03-01,2024-03-05,1750.00\n");
+                writer.write("BK-002,Jane Doe,DELUXE,2024-03-03,2024-03-07,960.00\n");
+            }
 
             result.put("status", "generated");
             result.put("path", fullPath);
-            result.put("serverPort", SERVER_PORT); // czr-port-001
+            result.put("serverPort", SERVER_PORT);
 
         } catch (IOException e) {
             result.put("status", "error");
@@ -57,21 +68,36 @@ public class ReportService {
         return result;
     }
 
-    // VIOLATION [Code Sustainability / Medium]: No JavaDoc or method documentation.
-    // Missing documentation is flagged across all public methods in the codebase.
-    // This increases onboarding time and transformation risk for automated tools.
-    public String buildReportDownloadUrl(String reportName) { // doc-missing-001
-        // VIOLATION cr-java-0088 [Cloud Compatibility / Mandatory]: Plain HTTP URL
-        // hardcoded for report download. Cloud security standards enforce HTTPS.
-        return "http://reports.resorts-internal.com:8080/download/" + reportName; // cr-java-0088
+    /**
+     * Builds the HTTPS download URL for the given report name.
+     * Updated cr-java-0088: plain HTTP replaced with HTTPS to comply with cloud security standards.
+     * Report host is externalised to an environment variable.
+     *
+     * @param reportName the name of the report file
+     * @return the fully-qualified HTTPS download URL
+     */
+    public String buildReportDownloadUrl(String reportName) {
+        String reportHost = System.getenv().getOrDefault(
+                "REPORT_HOST", "reports.resorts-internal.com");
+        return "https://" + reportHost + "/download/" + reportName;
     }
 
-    public Map<String, Object> getSystemInfo() { // doc-missing-001
-        String timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+    /**
+     * Returns basic system information including configured paths and current timestamp.
+     * Updated: java.util.Date / SimpleDateFormat replaced with thread-safe java.time API
+     * (LocalDateTime + DateTimeFormatter) — compatible with Java 21.
+     *
+     * @return a map of system information key-value pairs
+     */
+    public Map<String, Object> getSystemInfo() {
+        // Updated: java.util.Date / SimpleDateFormat replaced with thread-safe java.time API.
+        String timestamp = LocalDateTime.now()
+                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+
         Map<String, Object> info = new HashMap<>();
-        info.put("reportPath", REPORT_BASE_PATH);  // czr-java-001
-        info.put("backupPath", BACKUP_PATH);        // czr-java-001
-        info.put("serverPort", SERVER_PORT);        // czr-port-001
+        info.put("reportPath", REPORT_BASE_PATH);
+        info.put("backupPath", BACKUP_PATH);
+        info.put("serverPort", SERVER_PORT);
         info.put("generatedAt", timestamp);
         return info;
     }
