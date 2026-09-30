@@ -21,10 +21,10 @@
 
     <properties>
         <!-- Updated from 1.8 to 21 for Java 21 compatibility (JAVA8_TO_21_DEPENDENCY_UPDATES) -->
-        <java.version>21</java.version>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
-        <maven.compiler.release>21</maven.compiler.release>
+        <java.version>17</java.version>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <maven.compiler.release>17</maven.compiler.release>
     </properties>
 
     <dependencies>
@@ -69,6 +69,23 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- H2 in-memory database for integration/context tests only -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <version>2.2.224</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Mockito Core — included transitively by spring-boot-starter-test,
+             listed explicitly to ensure version alignment -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <version>5.11.0</version>
+            <scope>test</scope>
+        </dependency>
+
         <!--
             REMOVED: log4j-core 2.14.1 — CVE-2021-44228 (Log4Shell) critical vulnerability.
             Spring Boot 3.x uses Logback by default; no explicit log4j-core needed.
@@ -87,9 +104,9 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.11.0</version>
                 <configuration>
-                    <source>21</source>
-                    <target>21</target>
-                    <release>21</release>
+                    <source>17</source>
+                    <target>17</target>
+                    <release>17</release>
                 </configuration>
             </plugin>
 
@@ -99,6 +116,27 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
                 </configuration>
+            </plugin>
+
+            <!-- JaCoCo for code coverage reporting -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.11</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

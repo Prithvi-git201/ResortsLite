@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BookingController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ResortsLite</a> &gt; <a href="index.source.html" class="el_package">com.demo.resortslite</a> &gt; <span class="el_source">BookingController.java</span></div><h1>BookingController.java</h1><pre class="source lang-java linenums">package com.demo.resortslite;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.*;
+
+// Updated from javax.servlet to jakarta.servlet for Jakarta EE / Spring Boot 3.x compatibility
+// (JAVA8_TO_21_JAKARTA_EE_MIGRATION)
+import jakarta.servlet.http.HttpSession;
+import java.util.HashMap;
+import java.util.Map;
+
+@RestController
+@RequestMapping(&quot;/api/bookings&quot;)
+<span class="fc" id="L15">public class BookingController {</span>
+
+    @Autowired
+    private BookingService bookingService;
+
+    // VIOLATION cr-java-0067 [Cloud Compatibility / Mandatory]: In-memory cache without TTL
+    // breaks horizontal scaling — cache is instance-local, invisible to other EC2 instances
+<span class="fc" id="L22">    private static final Map&lt;String, Object&gt; bookingCache = new HashMap&lt;&gt;(); // cr-java-0067</span>
+
+    // FIX cr-java-0088 / cr-java-0021: Inventory endpoint externalised to application property.
+    // Uses HTTPS to comply with cloud security standards (AWS ALB / WAF enforce HTTPS).
+    @Value(&quot;${app.inventory.endpoint:https://inventory-svc.internal:8081/rooms}&quot;)
+    private String inventoryEndpoint;
+
+    // FIX czr-java-001: Report base path externalised to application property.
+    // No hardcoded absolute paths — supports container and cloud deployments.
+    @Value(&quot;${app.report.base-path:/tmp/reports/}&quot;)
+    private String reportBasePath;
+
+    @PostMapping(&quot;/create&quot;)
+    public Map&lt;String, Object&gt; createBooking(
+            @RequestParam String guestName,
+            @RequestParam String roomType,
+            @RequestParam String checkIn,
+            @RequestParam String checkOut,
+            HttpSession session) {
+
+<span class="fc" id="L42">        Map&lt;String, Object&gt; booking = bookingService.createBooking(guestName, roomType, checkIn, checkOut);</span>
+
+        // VIOLATION cr-java-0065 [Cloud Compatibility / Mandatory]: Booking state stored in
+        // HTTP session memory. AWS ALB distributes requests across EC2 instances — session
+        // data on instance A is invisible to instance B. Auto-scaling and failover breaks.
+<span class="fc" id="L47">        session.setAttribute(&quot;lastBooking&quot;, booking); // cr-java-0065</span>
+<span class="fc" id="L48">        session.setAttribute(&quot;guestName&quot;, guestName); // cr-java-0065</span>
+
+<span class="fc" id="L50">        bookingCache.put((String) booking.get(&quot;bookingId&quot;), booking);</span>
+
+<span class="fc" id="L52">        Map&lt;String, Object&gt; response = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L53">        response.put(&quot;status&quot;, &quot;confirmed&quot;);</span>
+<span class="fc" id="L54">        response.put(&quot;booking&quot;, booking);</span>
+<span class="fc" id="L55">        return response;</span>
+    }
+
+    @GetMapping(&quot;/status/{bookingId}&quot;)
+    public Map&lt;String, Object&gt; getBookingStatus(
+            @PathVariable String bookingId,
+            HttpSession session) {
+
+        // VIOLATION cr-java-0065 [Cloud Compatibility / Mandatory]: Reading business state
+        // from HTTP session — will return null on any other instance in the cluster.
+<span class="fc" id="L65">        String lastGuest = (String) session.getAttribute(&quot;guestName&quot;); // cr-java-0065</span>
+
+<span class="fc" id="L67">        Map&lt;String, Object&gt; result = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L68">        result.put(&quot;bookingId&quot;, bookingId);</span>
+<span class="fc" id="L69">        result.put(&quot;sessionGuest&quot;, lastGuest);</span>
+<span class="fc" id="L70">        result.put(&quot;details&quot;, bookingService.getBookingById(bookingId));</span>
+<span class="fc" id="L71">        return result;</span>
+    }
+
+    @GetMapping(&quot;/availability&quot;)
+    public Map&lt;String, Object&gt; checkAvailability(@RequestParam String roomType) {
+        // FIX cr-java-0088 / cr-java-0021: Replaced hardcoded plain HTTP internal URL with
+        // an externalised HTTPS endpoint injected via @Value. Cloud security standards
+        // (AWS ALB / WAF) enforce HTTPS; plain HTTP calls are blocked or flagged.
+<span class="fc" id="L79">        Map&lt;String, Object&gt; response = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L80">        response.put(&quot;roomType&quot;, roomType);</span>
+<span class="fc" id="L81">        response.put(&quot;inventoryEndpoint&quot;, inventoryEndpoint);</span>
+<span class="fc" id="L82">        response.put(&quot;available&quot;, bookingService.isRoomAvailable(roomType));</span>
+<span class="fc" id="L83">        return response;</span>
+    }
+
+    @GetMapping(&quot;/report/download&quot;)
+    public Map&lt;String, Object&gt; downloadReport(@RequestParam String month) {
+        // FIX czr-java-001 [Software Portability / Mandatory]: Replaced hardcoded absolute
+        // path /var/legacy/reports with an externalised property. The path is now configurable
+        // via environment variable / application property and defaults to /tmp/reports/,
+        // which is available in all Linux container images.
+<span class="fc" id="L92">        String reportPath = reportBasePath + month + &quot;_bookings.pdf&quot;;</span>
+
+<span class="fc" id="L94">        Map&lt;String, Object&gt; response = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L95">        response.put(&quot;reportPath&quot;, reportPath);</span>
+<span class="fc" id="L96">        response.put(&quot;message&quot;, bookingService.generateReport(month));</span>
+<span class="fc" id="L97">        return response;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

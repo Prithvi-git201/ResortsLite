@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BookingService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ResortsLite</a> &gt; <a href="index.source.html" class="el_package">com.demo.resortslite</a> &gt; <span class="el_source">BookingService.java</span></div><h1>BookingService.java</h1><pre class="source lang-java linenums">package com.demo.resortslite;
+
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import java.security.MessageDigest;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+@Service
+<span class="fc" id="L14">public class BookingService {</span>
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    // FIX sec-cred-001 / cr-java-0021: Removed hardcoded DB credentials and infrastructure
+    // hostname. All sensitive values are now externalised to environment variables /
+    // application.properties and injected via @Value. No credentials in source code.
+    @Value(&quot;${app.payment.endpoint:https://payment-svc.internal:9090/charge}&quot;)
+    private String paymentApi;
+
+    public Map&lt;String, Object&gt; createBooking(String guestName, String roomType,
+                                              String checkIn, String checkOut) {
+<span class="fc" id="L27">        String bookingId = &quot;BK-&quot; + UUID.randomUUID().toString().substring(0, 8).toUpperCase();</span>
+
+        // FIX sql-inject-001 [Security Health / Critical]: Replaced string-concatenated SQL
+        // with a parameterised JdbcTemplate query using '?' placeholders. This prevents SQL
+        // injection — user-supplied values are never interpolated into the SQL string.
+<span class="fc" id="L32">        String sql = &quot;INSERT INTO bookings (id, guest, room, checkin, checkout) VALUES (?, ?, ?, ?, ?)&quot;;</span>
+<span class="fc" id="L33">        jdbcTemplate.update(sql, bookingId, guestName, roomType, checkIn, checkOut);</span>
+
+        // Updated: replaced MD5 (broken algorithm, RFC 6151) with SHA-256 for confirmation codes
+        // (JAVA8_TO_21_SECURITY_UPDATES — sec-weak-hash-001)
+<span class="fc" id="L37">        String confirmCode = sha256Hash(bookingId + guestName);</span>
+
+<span class="fc" id="L39">        Map&lt;String, Object&gt; booking = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L40">        booking.put(&quot;bookingId&quot;, bookingId);</span>
+<span class="fc" id="L41">        booking.put(&quot;guestName&quot;, guestName);</span>
+<span class="fc" id="L42">        booking.put(&quot;roomType&quot;, roomType);</span>
+<span class="fc" id="L43">        booking.put(&quot;checkIn&quot;, checkIn);</span>
+<span class="fc" id="L44">        booking.put(&quot;checkOut&quot;, checkOut);</span>
+<span class="fc" id="L45">        booking.put(&quot;confirmationCode&quot;, confirmCode);</span>
+<span class="fc" id="L46">        return booking;</span>
+    }
+
+    public Map&lt;String, Object&gt; getBookingById(String bookingId) {
+        // FIX sql-inject-001 [Security Health / Critical]: Replaced string-concatenated SQL
+        // with a parameterised JdbcTemplate query. bookingId is now passed as a safe
+        // bind parameter, preventing SQL injection attacks.
+<span class="fc" id="L53">        String sql = &quot;SELECT * FROM bookings WHERE id = ?&quot;;</span>
+<span class="fc" id="L54">        Map&lt;String, Object&gt; result = new HashMap&lt;&gt;();</span>
+        try {
+<span class="fc" id="L56">            result = jdbcTemplate.queryForMap(sql, bookingId);</span>
+<span class="fc" id="L57">        } catch (Exception e) {</span>
+<span class="fc" id="L58">            result.put(&quot;error&quot;, &quot;Booking not found: &quot; + bookingId);</span>
+<span class="fc" id="L59">        }</span>
+<span class="fc" id="L60">        return result;</span>
+    }
+
+    // VIOLATION [Code Sustainability / High]: High cyclomatic complexity.
+    // This method has 9+ decision branches. Automated transformation tools flag methods
+    // above complexity threshold as high maintenance risk and transformation blockers.
+    public String calculateRoomPrice(String roomType, int nights, String season, String loyalty) {
+<span class="fc" id="L67">        double basePrice = 0;</span>
+<span class="fc bfc" id="L68" title="All 2 branches covered.">        if (roomType.equals(&quot;STANDARD&quot;)) { basePrice = 120.0; }</span>
+<span class="fc bfc" id="L69" title="All 2 branches covered.">        else if (roomType.equals(&quot;DELUXE&quot;)) { basePrice = 200.0; }</span>
+<span class="fc bfc" id="L70" title="All 2 branches covered.">        else if (roomType.equals(&quot;SUITE&quot;)) { basePrice = 350.0; }</span>
+<span class="fc bfc" id="L71" title="All 2 branches covered.">        else if (roomType.equals(&quot;VILLA&quot;)) { basePrice = 600.0; }</span>
+<span class="fc" id="L72">        else { basePrice = 120.0; }</span>
+<span class="fc bfc" id="L73" title="All 2 branches covered.">        if (season.equals(&quot;PEAK&quot;)) { basePrice = basePrice * 1.5; }</span>
+<span class="fc bfc" id="L74" title="All 2 branches covered.">        else if (season.equals(&quot;OFF&quot;)) { basePrice = basePrice * 0.8; }</span>
+<span class="fc bfc" id="L75" title="All 2 branches covered.">        if (loyalty.equals(&quot;GOLD&quot;)) { basePrice = basePrice * 0.9; }</span>
+<span class="fc bfc" id="L76" title="All 2 branches covered.">        else if (loyalty.equals(&quot;PLATINUM&quot;)) { basePrice = basePrice * 0.8; }</span>
+<span class="fc bfc" id="L77" title="All 2 branches covered.">        else if (loyalty.equals(&quot;DIAMOND&quot;)) { basePrice = basePrice * 0.7; }</span>
+<span class="fc bfc" id="L78" title="All 2 branches covered.">        if (nights &gt;= 14) { basePrice = basePrice * 0.90; }</span>
+<span class="fc bfc" id="L79" title="All 2 branches covered.">        else if (nights &gt;= 7) { basePrice = basePrice * 0.95; }</span>
+<span class="fc" id="L80">        double total = basePrice * nights;</span>
+<span class="fc" id="L81">        return String.format(&quot;%.2f&quot;, total);</span>
+    }
+
+    public boolean isRoomAvailable(String roomType) {
+        // VIOLATION [Code Sustainability / Medium]: Duplicated validation logic.
+        // Same room type validation is repeated here and in calculateRoomPrice.
+        // Should be extracted to a shared RoomType enum or validator.
+<span class="fc bfc" id="L88" title="All 4 branches covered.">        if (!roomType.equals(&quot;STANDARD&quot;) &amp;&amp; !roomType.equals(&quot;DELUXE&quot;) // dup-logic-001</span>
+<span class="fc bfc" id="L89" title="All 4 branches covered.">                &amp;&amp; !roomType.equals(&quot;SUITE&quot;) &amp;&amp; !roomType.equals(&quot;VILLA&quot;)) { // dup-logic-001</span>
+<span class="fc" id="L90">            return false;</span>
+        }
+<span class="fc" id="L92">        return true;</span>
+    }
+
+    public String generateReport(String month) {
+<span class="fc" id="L96">        return &quot;Report generation triggered for: &quot; + month + &quot; via &quot; + paymentApi;</span>
+    }
+
+    /**
+     * Generates a SHA-256 hash of the given input string.
+     * Replaces the legacy MD5 implementation (sec-weak-hash-001) which used a broken
+     * algorithm (RFC 6151). SHA-256 is cryptographically secure and Java 21 compatible.
+     *
+     * @param input the string to hash
+     * @return hex-encoded SHA-256 digest, or the original input on error
+     */
+    private String sha256Hash(String input) {
+        try {
+<span class="fc" id="L109">            MessageDigest md = MessageDigest.getInstance(&quot;SHA-256&quot;);</span>
+<span class="fc" id="L110">            byte[] hash = md.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));</span>
+<span class="fc" id="L111">            StringBuilder sb = new StringBuilder();</span>
+<span class="fc bfc" id="L112" title="All 2 branches covered.">            for (byte b : hash) {</span>
+<span class="fc" id="L113">                sb.append(String.format(&quot;%02x&quot;, b));</span>
+            }
+<span class="fc" id="L115">            return sb.toString();</span>
+<span class="nc" id="L116">        } catch (Exception e) {</span>
+<span class="nc" id="L117">            return input;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>
