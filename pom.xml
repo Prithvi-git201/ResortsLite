@@ -8,52 +8,96 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>2.7.18</version>
+        <!-- Updated from 2.7.15 to 3.2.5 for full Java 21 compatibility (JAVA8_TO_21_SPRING_BOOT_COMPATIBILITY) -->
+        <version>3.2.5</version>
+        <relativePath/>
     </parent>
 
     <groupId>com.demo</groupId>
     <artifactId>resortsLite</artifactId>
     <version>1.0.0</version>
     <name>ResortsLite</name>
-    <description>Legacy resort booking demo — Java 8 / Spring Boot 2.7.x</description>
+    <description>Resort booking demo — Java 21 / Spring Boot 3.2.x</description>
 
     <properties>
-        <java.version>1.8</java.version>
+        <!-- Updated from 1.8 to 21 for Java 21 compatibility (JAVA8_TO_21_DEPENDENCY_UPDATES) -->
+        <java.version>21</java.version>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <maven.compiler.release>21</maven.compiler.release>
     </properties>
 
     <dependencies>
+        <!-- Spring Boot Web Starter (includes jakarta.servlet via Tomcat) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
+
+        <!-- Spring Boot JDBC Starter -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-jdbc</artifactId>
         </dependency>
-        <!-- SECURITY VIOLATION: log4j 2.14.1 has critical CVE-2021-44228 (Log4Shell) -->
+
+        <!-- Spring Boot Validation Starter (jakarta.validation) -->
         <dependency>
-            <groupId>org.apache.logging.log4j</groupId>
-            <artifactId>log4j-core</artifactId>
-            <version>2.14.1</version>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
-        <!-- SECURITY VIOLATION: commons-collections 3.2.1 has CVE-2015-6420 (RCE) -->
-        <dependency>
-            <groupId>commons-collections</groupId>
-            <artifactId>commons-collections</artifactId>
-            <version>3.2.1</version>
-        </dependency>
+
+        <!-- H2 in-memory database (replaces mysql-connector-java for demo) -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
         </dependency>
+
+        <!-- Replaced commons-collections 3.2.1 (CVE-2015-6420 RCE) with patched 3.2.2 -->
+        <dependency>
+            <groupId>commons-collections</groupId>
+            <artifactId>commons-collections</artifactId>
+            <!-- Updated from 3.2.1 to 3.2.2 which patches CVE-2015-6420 -->
+            <version>3.2.2</version>
+        </dependency>
+
+        <!-- Spring Boot Test Starter (JUnit 5 / Jupiter) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!--
+            REMOVED: log4j-core 2.14.1 — CVE-2021-44228 (Log4Shell) critical vulnerability.
+            Spring Boot 3.x uses Logback by default; no explicit log4j-core needed.
+
+            REMOVED: mysql-connector-java — application uses H2 in-memory DB for demo.
+            If MySQL is needed, use com.mysql:mysql-connector-j:8.2.0 (new groupId/artifactId).
+        -->
     </dependencies>
 
     <build>
         <plugins>
+            <!-- Updated maven-compiler-plugin to 3.11.0 for Java 21 support
+                 (JAVA8_TO_21_DEPENDENCY_UPDATES, JAVA8_TO_17_MAVEN_PLUGIN_UPDATES) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <source>21</source>
+                    <target>21</target>
+                    <release>21</release>
+                </configuration>
+            </plugin>
+
+            <!-- Spring Boot Maven Plugin for packaging -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                </configuration>
             </plugin>
         </plugins>
     </build>

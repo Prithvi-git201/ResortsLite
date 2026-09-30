@@ -39,9 +39,9 @@ public class BookingService {
                 + "', '" + checkIn + "', '" + checkOut + "')";                     // sql-inject-001
         jdbcTemplate.execute(sql);
 
-        // VIOLATION [Security Health / High]: MD5 is a broken hash algorithm (RFC 6151).
-        // Do not use MD5 for any security-related hashing. Use SHA-256 or bcrypt.
-        String confirmCode = md5Hash(bookingId + guestName); // sec-weak-hash-001
+        // Updated: replaced MD5 (broken algorithm, RFC 6151) with SHA-256 for confirmation codes
+        // (JAVA8_TO_21_SECURITY_UPDATES — sec-weak-hash-001)
+        String confirmCode = sha256Hash(bookingId + guestName);
 
         Map<String, Object> booking = new HashMap<>();
         booking.put("bookingId", bookingId);
@@ -103,12 +103,22 @@ public class BookingService {
         return "Report generation triggered for: " + month + " via " + PAYMENT_API;
     }
 
-    private String md5Hash(String input) { // sec-weak-hash-001
+    /**
+     * Generates a SHA-256 hash of the given input string.
+     * Replaces the legacy MD5 implementation (sec-weak-hash-001) which used a broken
+     * algorithm (RFC 6151). SHA-256 is cryptographically secure and Java 21 compatible.
+     *
+     * @param input the string to hash
+     * @return hex-encoded SHA-256 digest, or the original input on error
+     */
+    private String sha256Hash(String input) {
         try {
-            MessageDigest md = MessageDigest.getInstance("MD5"); // sec-weak-hash-001
-            byte[] hash = md.digest(input.getBytes());
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
             StringBuilder sb = new StringBuilder();
-            for (byte b : hash) { sb.append(String.format("%02x", b)); }
+            for (byte b : hash) {
+                sb.append(String.format("%02x", b));
+            }
             return sb.toString();
         } catch (Exception e) {
             return input;

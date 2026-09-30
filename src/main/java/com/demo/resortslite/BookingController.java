@@ -3,7 +3,9 @@ package com.demo.resortslite;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import javax.servlet.http.HttpSession;
+// Updated from javax.servlet to jakarta.servlet for Jakarta EE / Spring Boot 3.x compatibility
+// (JAVA8_TO_21_JAKARTA_EE_MIGRATION)
+import jakarta.servlet.http.HttpSession;
 import java.util.HashMap;
 import java.util.Map;
 
