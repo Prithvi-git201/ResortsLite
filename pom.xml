@@ -46,10 +46,11 @@
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
-        <!-- H2 in-memory database (replaces mysql-connector-java for demo) -->
+        <!-- PostgreSQL JDBC Driver — replaces H2 in-memory database for PostgreSQL 16 compatibility -->
         <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.7.3</version>
             <scope>runtime</scope>
         </dependency>
 
@@ -72,8 +73,8 @@
             REMOVED: log4j-core 2.14.1 — CVE-2021-44228 (Log4Shell) critical vulnerability.
             Spring Boot 3.x uses Logback by default; no explicit log4j-core needed.
 
-            REMOVED: mysql-connector-java — application uses H2 in-memory DB for demo.
-            If MySQL is needed, use com.mysql:mysql-connector-j:8.2.0 (new groupId/artifactId).
+            REMOVED: H2 in-memory database — replaced with PostgreSQL 16 driver (postgresql 42.7.3).
+            REMOVED: mysql-connector-java — application uses PostgreSQL as target database.
         -->
     </dependencies>
 

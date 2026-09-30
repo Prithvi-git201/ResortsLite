@@ -1,6 +1,7 @@
 package com.demo.resortslite;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
 // Updated from javax.servlet to jakarta.servlet for Jakarta EE / Spring Boot 3.x compatibility
@@ -19,6 +20,16 @@ public class BookingController {
     // VIOLATION cr-java-0067 [Cloud Compatibility / Mandatory]: In-memory cache without TTL
     // breaks horizontal scaling — cache is instance-local, invisible to other EC2 instances
     private static final Map<String, Object> bookingCache = new HashMap<>(); // cr-java-0067
+
+    // FIX cr-java-0088 / cr-java-0021: Inventory endpoint externalised to application property.
+    // Uses HTTPS to comply with cloud security standards (AWS ALB / WAF enforce HTTPS).
+    @Value("${app.inventory.endpoint:https://inventory-svc.internal:8081/rooms}")
+    private String inventoryEndpoint;
+
+    // FIX czr-java-001: Report base path externalised to application property.
+    // No hardcoded absolute paths — supports container and cloud deployments.
+    @Value("${app.report.base-path:/tmp/reports/}")
+    private String reportBasePath;
 
     @PostMapping("/create")
     public Map<String, Object> createBooking(
@@ -62,24 +73,23 @@ public class BookingController {
 
     @GetMapping("/availability")
     public Map<String, Object> checkAvailability(@RequestParam String roomType) {
-        // VIOLATION cr-java-0088 [Cloud Compatibility / Mandatory]: Plain HTTP call to
-        // internal inventory service. AWS ALB, WAF, and Well-Architected security review
-        // enforce HTTPS. This call will be blocked or flagged in a cloud-native setup.
-        String inventoryUrl = "http://inventory-service.internal:8081/rooms/available"; // cr-java-0088
-
+        // FIX cr-java-0088 / cr-java-0021: Replaced hardcoded plain HTTP internal URL with
+        // an externalised HTTPS endpoint injected via @Value. Cloud security standards
+        // (AWS ALB / WAF) enforce HTTPS; plain HTTP calls are blocked or flagged.
         Map<String, Object> response = new HashMap<>();
         response.put("roomType", roomType);
-        response.put("inventoryEndpoint", inventoryUrl);
+        response.put("inventoryEndpoint", inventoryEndpoint);
         response.put("available", bookingService.isRoomAvailable(roomType));
         return response;
     }
 
     @GetMapping("/report/download")
     public Map<String, Object> downloadReport(@RequestParam String month) {
-        // VIOLATION czr-java-001 [Software Portability / Mandatory]: Hardcoded absolute
-        // file path. This path does not exist inside a container image. Container images
-        // have their own isolated file systems — /var/legacy/reports won't be present.
-        String reportPath = "/var/legacy/reports/" + month + "_bookings.pdf"; // czr-java-001
+        // FIX czr-java-001 [Software Portability / Mandatory]: Replaced hardcoded absolute
+        // path /var/legacy/reports with an externalised property. The path is now configurable
+        // via environment variable / application property and defaults to /tmp/reports/,
+        // which is available in all Linux container images.
+        String reportPath = reportBasePath + month + "_bookings.pdf";
 
         Map<String, Object> response = new HashMap<>();
         response.put("reportPath", reportPath);
